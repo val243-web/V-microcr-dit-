@@ -34,6 +34,10 @@ services:
       SPRING_DATASOURCE_USERNAME: vmicro
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-vmicro_local_dev}
       JWT_SECRET: ${JWT_SECRET:-change_me_min_32_chars_in_production}
+      WEBHOOK_HMAC_SECRET: ${WEBHOOK_HMAC_SECRET:-change_me_webhook_hmac_secret}
+      VMICRO_REQUIRE_HTTPS: ${VMICRO_REQUIRE_HTTPS:-false}
+      VMICRO_CORS_ORIGINS: ${VMICRO_CORS_ORIGINS:-*}
+      VMICRO_SEED_DEMO_CLIENTS: ${VMICRO_SEED_DEMO_CLIENTS:-true}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "8080:8080"

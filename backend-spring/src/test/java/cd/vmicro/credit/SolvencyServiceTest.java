@@ -3,6 +3,7 @@ package cd.vmicro.credit;
 import cd.vmicro.credit.payment.PaymentProvider;
 import cd.vmicro.credit.payment.SimulatedMobileMoneyProviders;
 import cd.vmicro.credit.security.JwtService;
+import cd.vmicro.credit.service.GeminiRestService;
 import cd.vmicro.credit.service.SolvencyService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,13 @@ class SolvencyServiceTest {
     }
 
     @Test
+    void computesAmortizationSchedulePreview() {
+        var est = solvencyService.calculateLoanEstimate(BigDecimal.valueOf(600), 6);
+        assertEquals(6, est.schedulePreview().size());
+        assertTrue(est.totalRepayable().compareTo(BigDecimal.valueOf(600)) > 0);
+    }
+
+    @Test
     void signsAndVerifiesJwtTokensSecurely() {
         var jwtService = new JwtService("vmicro_unit_test_secret_at_least_32_characters", new ObjectMapper());
         String token = jwtService.generateAccessToken("usr_123", "CLIENT", "ses_456", 3600);
@@ -75,5 +83,14 @@ class SolvencyServiceTest {
 
         assertTrue(airtel.verifyWebhookSignature(payload, validSig));
         assertFalse(airtel.verifyWebhookSignature(payload, "invalid_signature"));
+    }
+
+    @Test
+    void computesNormalizedVoiceChallengeWordSimilarity() {
+        double sim = GeminiRestService.computeWordSimilarity(
+                "Je confirme mon identité sur V-Micro Crédit",
+                "je confirme mon identite sur v micro credit"
+        );
+        assertTrue(sim >= 0.85);
     }
 }

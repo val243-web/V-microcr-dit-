@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   forward-headers-strategy: native
 
 spring:
@@ -23,6 +23,10 @@ vmicro:
     webhook-hmac-secret: ${WEBHOOK_HMAC_SECRET:vmicro_dev_webhook_secret_change_in_prod}
     require-https: ${VMICRO_REQUIRE_HTTPS:false}
     min-eligible-age: 18
+  cors:
+    allowed-origins: ${VMICRO_CORS_ORIGINS:*}
+  seed:
+    demo-clients: ${VMICRO_SEED_DEMO_CLIENTS:true}
   integrations:
     payment-mode: SIMULATION
     halisi-mode: MOCK

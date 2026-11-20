@@ -18,6 +18,8 @@ export function clearStoredTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -32,13 +34,13 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  let response = await fetch(`/api/v1${path}`, {
+  let response = await fetch(`${API_ORIGIN}/api/v1${path}`, {
     ...options,
     headers,
   });
 
   if (response.status === 401 && refreshToken && !path.startsWith('/auth/')) {
-    const refreshRes = await fetch('/api/v1/auth/refresh', {
+    const refreshRes = await fetch(`${API_ORIGIN}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -48,7 +50,7 @@ export async function apiRequest<T>(
       const tokens = (await refreshRes.json()) as { accessToken: string; refreshToken: string };
       setStoredTokens(tokens.accessToken, tokens.refreshToken);
       headers['Authorization'] = `Bearer ${tokens.accessToken}`;
-      response = await fetch(`/api/v1${path}`, { ...options, headers });
+      response = await fetch(`${API_ORIGIN}/api/v1${path}`, { ...options, headers });
     } else {
       clearStoredTokens();
     }
