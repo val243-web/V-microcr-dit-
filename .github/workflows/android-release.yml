@@ -40,12 +40,20 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
-            ndk;26.1.10909125
-            cmake;3.22.1
+          packages: ''
+
+      - name: Verify & Provision Android SDK 35 / Build-Tools / NDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          SDK_DIR="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          SDKMANAGER=$(command -v sdkmanager || find "$SDK_DIR/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
+          if [ -n "$SDKMANAGER" ]; then
+            echo "Using sdkmanager: $SDKMANAGER"
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125" "cmake;3.22.1" || true
+          fi
+          ls -la "$SDK_DIR/platforms" "$SDK_DIR/build-tools" || true
 
       - name: Install Mobile Dependencies
         working-directory: mobile-expo
@@ -115,7 +123,7 @@ jobs:
               -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
           fi
 
-      - name: Locate & Rename APK
+      - name: Verify & Rename Output APK
         id: apk
         working-directory: mobile-expo
         run: |
@@ -129,13 +137,21 @@ jobs:
             TAG="latest"
             PRERELEASE="false"
           fi
-          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Listing all generated APKs under android/app/build/outputs/apk:"
+          find android/app/build/outputs/apk -type f -name "*.apk" -exec ls -lh {} + || true
+          APK_PATH=$(find android/app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "Erreur : aucun APK généré dans android/app/build/outputs/apk/release" >&2
+            APK_PATH=$(find android/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
+          fi
+          if [ -z "$APK_PATH" ] || [ ! -s "$APK_PATH" ]; then
+            echo "Erreur : aucun APK valide généré dans android/app/build/outputs/apk" >&2
             exit 1
           fi
-          cp "$APK_PATH" "v-micro-credit-${TAG}.apk"
-          echo "apk_file=mobile-expo/v-micro-credit-${TAG}.apk" >> $GITHUB_OUTPUT
+          OUT_APK="v-micro-credit-${TAG}.apk"
+          cp "$APK_PATH" "$OUT_APK"
+          ls -lh "$OUT_APK"
+          sha256sum "$OUT_APK"
+          echo "apk_file=mobile-expo/${OUT_APK}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
 
@@ -151,6 +167,7 @@ jobs:
           tag_name: ${{ steps.apk.outputs.tag }}
           name: "V-Micro Crédit Android (${{ steps.apk.outputs.tag }})"
           prerelease: ${{ steps.apk.outputs.prerelease == 'true' }}
+          make_latest: true
           overwrite_files: true
           body: |
             Application Android **V-Micro Crédit** compilée automatiquement via GitHub Actions + Gradle.
