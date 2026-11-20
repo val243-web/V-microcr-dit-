@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vmicro-postgres
+    environment:
+      POSTGRES_DB: vmicro_credit
+      POSTGRES_USER: vmicro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vmicro_local_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vmicro -d vmicro_credit"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: vmicro-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend-spring:
+    build:
+      context: ./backend-spring
+    container_name: vmicro-spring-api
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vmicro_credit
+      SPRING_DATASOURCE_USERNAME: vmicro
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-vmicro_local_dev}
+      JWT_SECRET: ${JWT_SECRET:-change_me_min_32_chars_in_production}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

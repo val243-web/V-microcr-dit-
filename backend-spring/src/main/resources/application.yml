@@ -1,0 +1,29 @@
+server:
+  port: 8080
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: vmicro-credit-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vmicro_credit}
+    username: ${SPRING_DATASOURCE_USERNAME:vmicro}
+    password: ${SPRING_DATASOURCE_PASSWORD:vmicro_local_dev}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+vmicro:
+  security:
+    jwt-secret: ${JWT_SECRET:vmicro_dev_jwt_secret_minimum_32_characters_long}
+    webhook-hmac-secret: ${WEBHOOK_HMAC_SECRET:vmicro_dev_webhook_secret_change_in_prod}
+    require-https: ${VMICRO_REQUIRE_HTTPS:false}
+    min-eligible-age: 18
+  integrations:
+    payment-mode: SIMULATION
+    halisi-mode: MOCK
+    gemini-api-key: ${GEMINI_API_KEY:}

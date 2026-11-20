@@ -1,0 +1,113 @@
+name: Build & Publish Android APK (GitHub Releases)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag de version (ex. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-apk:
+    name: Compiler APK Android avec Gradle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java 17 (requis par Android Gradle Plugin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Mobile Dependencies
+        working-directory: mobile-expo
+        run: npm install
+
+      - name: Expo Prebuild Android (Generate native android/ project)
+        working-directory: mobile-expo
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || 'https://ais-dev-ypt2be35uniibdgvlmkj3f-646904106584.us-west2.run.app' }}
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Enforce HTTPS-only Network Security Config on Android
+        working-directory: mobile-expo
+        run: |
+          mkdir -p android/app/src/main/res/xml
+          cat << 'EOF' > android/app/src/main/res/xml/network_security_config.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <base-config cleartextTrafficPermitted="false">
+                  <trust-anchors>
+                      <certificates src="system" />
+                  </trust-anchors>
+              </base-config>
+          </network-security-config>
+          EOF
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if ! grep -q "networkSecurityConfig" "$MANIFEST"; then
+            sed -i 's/<application /<application android:networkSecurityConfig="@xml\/network_security_config" android:usesCleartextTraffic="false" /' "$MANIFEST"
+          fi
+
+      - name: Configure Release Keystore (if provided in GitHub Secrets)
+        id: keystore
+        working-directory: mobile-expo/android/app
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+            echo "signed=true" >> $GITHUB_OUTPUT
+          else
+            echo "signed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Android APK via Gradle
+        working-directory: mobile-expo/android
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
+              -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
+          else
+            ./gradlew assembleDebug
+          fi
+
+      - name: Locate & Rename APK
+        id: apk
+        working-directory: mobile-expo
+        run: |
+          TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
+          APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          cp "$APK_PATH" "v-micro-credit-${TAG}.apk"
+          echo "apk_file=mobile-expo/v-micro-credit-${TAG}.apk" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Publish APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: "V-Micro Crédit Android (${{ steps.apk.outputs.tag }})"
+          body: |
+            Application Android **V-Micro Crédit** compilée automatiquement via GitHub Actions + Gradle.
+            - HTTPS strict activé (`cleartextTrafficPermitted="false"`)
+            - Stockage JWT chiffré (`Expo SecureStore`) & `BiometricPrompt` Android
+            - Environnement de démonstration / simulation RDC
+          files: ${{ steps.apk.outputs.apk_file }}

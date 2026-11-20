@@ -1,0 +1,6 @@
+{
+  "name": "V-Micro Crédit",
+  "description": "Épargner. Préparer. Avancer. Plateforme fintech inclusive pour la RDC : épargne par objectifs, microcrédit explicable, Mobile Money, biométrie et Assistant V-Micro.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,50 @@
+name: V-Micro Crédit CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  web-and-api-tests:
+    name: API Node, React & Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  spring-boot-tests:
+    name: Backend Java Spring Boot & JUnit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+      - name: Run Spring Boot unit tests
+        working-directory: backend-spring
+        run: mvn test -B
+
+  mobile-typecheck:
+    name: Mobile Expo TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install & Typecheck Expo app
+        working-directory: mobile-expo
+        run: |
+          npm install
+          npx tsc --noEmit

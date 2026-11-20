@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "V-Micro Crédit",
+    "slug": "vmicro-credit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "vmicrocredit",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "cd.vmicro.credit",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#4F0000"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_CONTACTS"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "cd.vmicro.credit",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Vérifier votre identité de manière sécurisée sans conserver d'image biométrique.",
+        "NSCameraUsageDescription": "Capturer un selfie ou une pièce d'identité pour le contrôle KYC.",
+        "NSMicrophoneUsageDescription": "Enregistrer votre voix pour la vérification vocale et l'Assistant V-Micro."
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Autoriser V-Micro Crédit à utiliser la biométrie sécurisée de l'appareil."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser V-Micro Crédit à accéder à la caméra pour la vérification d'identité."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Autoriser V-Micro Crédit à accéder au microphone pour les tests vocaux et l'assistant."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "usesCleartextTraffic": false
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://ais-dev-ypt2be35uniibdgvlmkj3f-646904106584.us-west2.run.app"
+    }
+  }
+}
