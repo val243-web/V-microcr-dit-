@@ -253,7 +253,7 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Permission insuffisante."));
         }
         return auditLogService.getById(id)
-                .<ResponseEntity<Map<String, Object>>>map(log -> ResponseEntity.ok(Map.of("log", log)))
+                .<ResponseEntity<Map<String, Object>>>map(log -> ResponseEntity.ok(Map.<String, Object>of("log", log)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Entrée d'audit introuvable.")));
     }
 

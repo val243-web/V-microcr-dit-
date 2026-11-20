@@ -312,12 +312,18 @@ public class LoansAndKycController {
                 "INSERT INTO identity_verifications (id, user_id, method, provider, provider_reference, liveness_passed, document_matched, device_biometric_verified, status, failure_reason, is_simulated) VALUES (?, ?, 'GEMINI_MULTIMODAL_FACE_TEST', 'GeminiVisionTest', ?, ?, ?, FALSE, ?, ?, TRUE)",
                 kycId, auth.getName(), result.verificationRef(), result.livenessLikely(), result.documentReadable(), status, result.passed() ? null : result.observations()
         );
-        return ResponseEntity.ok(Map.of(
-                "id", kycId, "status", status, "verificationRef", result.verificationRef(),
-                "livenessLikely", result.livenessLikely(), "faceClear", result.faceClear(),
-                "documentReadable", result.documentReadable(), "documentTypeDetected", result.documentTypeDetected(),
-                "passed", result.passed(), "observations", result.observations(),
-                "isSimulatedEvaluation", true, "disclaimer", result.disclaimer()
+        return ResponseEntity.ok(Map.ofEntries(
+                Map.entry("id", kycId),
+                Map.entry("status", status),
+                Map.entry("verificationRef", result.verificationRef()),
+                Map.entry("livenessLikely", result.livenessLikely()),
+                Map.entry("faceClear", result.faceClear()),
+                Map.entry("documentReadable", result.documentReadable()),
+                Map.entry("documentTypeDetected", result.documentTypeDetected()),
+                Map.entry("passed", result.passed()),
+                Map.entry("observations", result.observations()),
+                Map.entry("isSimulatedEvaluation", true),
+                Map.entry("disclaimer", result.disclaimer())
         ));
     }
 

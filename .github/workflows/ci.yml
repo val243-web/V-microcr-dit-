@@ -15,8 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npm run lint
       - run: npm test
       - run: npm run build
@@ -46,5 +45,5 @@ jobs:
       - name: Install & Typecheck Expo app
         working-directory: mobile-expo
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npx tsc --noEmit
