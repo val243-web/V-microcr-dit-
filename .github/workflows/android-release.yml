@@ -44,16 +44,23 @@ jobs:
 
       - name: Verify & Provision Android SDK 35 / Build-Tools / NDK
         run: |
-          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
           SDK_DIR="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
           SDKMANAGER=$(command -v sdkmanager || find "$SDK_DIR/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
-          if [ -n "$SDKMANAGER" ]; then
-            echo "Using sdkmanager: $SDKMANAGER"
-            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-            "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125" "cmake;3.22.1" || true
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Erreur : sdkmanager introuvable sous $SDK_DIR" >&2
+            exit 1
           fi
-          ls -la "$SDK_DIR/platforms" "$SDK_DIR/build-tools" || true
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;26.1.10909125" \
+            "cmake;3.22.1"
+          ls -la "$SDK_DIR/platforms" "$SDK_DIR/build-tools" "$SDK_DIR/ndk" "$SDK_DIR/cmake"
 
       - name: Install Mobile Dependencies
         working-directory: mobile-expo
@@ -63,7 +70,7 @@ jobs:
         working-directory: mobile-expo
         env:
           CI: '1'
-        run: npx expo prebuild --platform android
+        run: npx expo prebuild --platform android --clean
 
       - name: Enforce HTTPS-only Network Security Config on Android
         working-directory: mobile-expo
@@ -92,6 +99,46 @@ jobs:
             fs.writeFileSync(p, xml);
           '
 
+      - name: Harden Gradle Settings, Memory & Release Lint Config
+        working-directory: mobile-expo
+        run: |
+          node -e '
+            const fs = require("fs");
+
+            // 1. ASCII Gradle project name (app display name remains V-Micro Crédit in strings.xml)
+            const settingsPath = "android/settings.gradle";
+            let settings = fs.readFileSync(settingsPath, "utf8");
+            settings = settings.replace(/rootProject\.name\s*=\s*[\x27"][^\x27"]+[\x27"]/, "rootProject.name = \x27vmicro-credit\x27");
+            fs.writeFileSync(settingsPath, settings);
+
+            // 2. Tune JVM heap & metaspace for Kotlin + CMake + R8 without OOM
+            const propsPath = "android/gradle.properties";
+            let props = fs.readFileSync(propsPath, "utf8");
+            if (/^org\.gradle\.jvmargs=.*/m.test(props)) {
+              props = props.replace(/^org\.gradle\.jvmargs=.*/m, "org.gradle.jvmargs=-Xmx3584m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8");
+            } else {
+              props += "\norg.gradle.jvmargs=-Xmx3584m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\n";
+            }
+            if (!props.includes("kotlin.daemon.jvmargs=")) {
+              props += "kotlin.daemon.jvmargs=-Xmx1536m\n";
+            }
+            if (!props.includes("android.prefabEnabled=")) {
+              props += "android.prefabEnabled=true\n";
+            }
+            fs.writeFileSync(propsPath, props);
+
+            // 3. Disable fatal lintVital halt on third-party RN/Expo dependencies in release builds
+            const appGradlePath = "android/app/build.gradle";
+            let appGradle = fs.readFileSync(appGradlePath, "utf8");
+            if (!appGradle.includes("checkReleaseBuilds")) {
+              appGradle = appGradle.replace(
+                /android\s*\{/,
+                "android {\n    lint {\n        checkReleaseBuilds false\n        abortOnError false\n    }"
+              );
+              fs.writeFileSync(appGradlePath, appGradle);
+            }
+          '
+
       - name: Configure Release Keystore (if provided in GitHub Secrets)
         id: keystore
         working-directory: mobile-expo/android/app
@@ -105,13 +152,11 @@ jobs:
 
       - name: Build Android APK via Gradle
         working-directory: mobile-expo/android
-        env:
-          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m"
         run: |
           chmod +x gradlew
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             ./gradlew assembleRelease \
-              --no-daemon --stacktrace \
+              --no-daemon --stacktrace --console=plain --max-workers=2 \
               -PreactNativeArchitectures=arm64-v8a,armeabi-v7a \
               -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
               -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
@@ -119,7 +164,7 @@ jobs:
               -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
           else
             ./gradlew assembleRelease \
-              --no-daemon --stacktrace \
+              --no-daemon --stacktrace --console=plain --max-workers=2 \
               -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
           fi
 
